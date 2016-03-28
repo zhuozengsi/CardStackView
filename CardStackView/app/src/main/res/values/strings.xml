@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">CardStackView</string>
+    <string name="card_view">Card View</string>
+    <string name="action">Action</string>
+    <string name="information">information</string>
+</resources>
