@@ -2,6 +2,7 @@ package com.sige.cardstackview;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.os.Handler;
 import android.support.v7.widget.CardView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -18,6 +19,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.TimerTask;
 
 /**
  * Created by zhuozengsi on 3/28/16.
@@ -174,6 +176,26 @@ public class CardStackView extends FrameLayout {
             v.setScaleX(scale);
             v.setScaleY(scale);
 
+            /**<p>
+             * When the top cardView have been removed from the parent <code>CardStackView</code>,
+             * it will be added to the first one of the <code>mViewList</code>, so it can form a
+             * loop.
+             * </p>
+             * <p>
+             * But we use the <code>ObjectAnimator</code>to translate the top cardView, it will
+             * change the property of translationX, so we must reverse it to 0. Otherwise, though
+             * we add the removed view to the <code>CardStackView</code>, it will reappear in the
+             * position where it was removed.
+             * </p>
+             * <p>
+             * Though not all the view in the <code>mViewList</code> need invoke this method, such as
+             * the the views not removed, but some must. So we do it.
+             * And we can't write it in the method {@see CardStackView#showNext(float from, float to)},
+             * or it will meet some problem.
+             * </p>
+             * */
+            v.setTranslationX(0.0f);
+
         }
 
 
@@ -185,35 +207,35 @@ public class CardStackView extends FrameLayout {
 
     private void showNext(float from, float to){
 
-        ObjectAnimator animator = ObjectAnimator.ofFloat(mTopCardView,"translationX",from,to);
+        final ObjectAnimator animator = ObjectAnimator.ofFloat(mTopCardView,"translationX",from,to);
         animator.setDuration(FADE_DURATION);
         animator.setInterpolator(new AccelerateInterpolator());
         animator.start();
-        CardView temp = mViewList.getLast();
-        mViewList.removeLast();
-        mViewList.addFirst(temp);
-        mTopCardView = mViewList.getLast();
 
-
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                CardView temp = mTopCardView;
+                removeView(mTopCardView);
+                mViewList.removeLast();
+                mViewList.addFirst(temp);
+                mTopCardView = mViewList.getLast();
+                final int viewNum = mViewList.size();
+                if (viewNum <= activeCardNum) {
+                    layoutAgain(0, viewNum - 1);
+                    addView(temp);
+                } else {
+                    layoutAgain(viewNum - activeCardNum, viewNum - 1);
+                    addView(mViewList.get(viewNum - activeCardNum));
+                }
+            }
+        }, FADE_DURATION);
     }
 
     public void showNext(){
         showNext(0, (mCardViewWidth+mScreenWidth)/2);
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * @param changed
-     * @param left
-     * @param top
-     * @param right
-     * @param bottom
-     */
-    @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
-    }
 
 
 }
