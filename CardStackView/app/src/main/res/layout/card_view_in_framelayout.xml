@@ -9,7 +9,7 @@
     android:layout_width="match_parent">
 
     <TextView
-        android:id="@+id/cardView_textView"
+        android:id="@+id/cardView_title"
         android:text="@string/card_view"
         android:gravity="center"
         android:textSize="16sp"
@@ -19,6 +19,7 @@
         android:background="@drawable/card_view_text_view_bg" />
 
     <TextView
+        android:id="@+id/cardView_content"
         android:layout_width="match_parent"
         android:layout_height="100dp"
         android:text="@string/information"
@@ -26,6 +27,7 @@
         android:layout_gravity="center"/>
 
     <Button
+        android:id="@+id/cardView_button"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:layout_gravity="bottom"
