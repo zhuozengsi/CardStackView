@@ -1,5 +1,7 @@
 package com.sige.cardstackview;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.os.Handler;
@@ -12,11 +14,14 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
+import android.view.animation.BounceInterpolator;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TimerTask;
@@ -26,22 +31,49 @@ import java.util.TimerTask;
  */
 public class CardStackView extends FrameLayout {
 
-    private final static float PERSPECTIVE_FACTOR = 0.97f;
-    private final static int FADE_DURATION = 200;
     private final static String TAG = "CardStackView";
+
+    /**The quotient of the size of adjacent views, the smaller one divides the bigger */
+    private final static float PERSPECTIVE_FACTOR = 0.95f;
+
+    /**The duration time when the top view removes*/
+    private final static int FADE_DURATION = 200;
+
+    /**The threshold of width that will trigger the animation of removing the top view,
+     * is the the quotient for the moved distance and the CardView width.*/
     private final static float FADE_SLOP_RATIO = 0.2f;
+
+    /**The value is the quotient for the uncovered height of the adjacent views and the CardView height*/
     private final static float UNCOVERED_RATIO = 0.11f;
+
+    /**The CardView width and height divides by the screen width and height respectively.*/
     private final static float CARD_WIDTH_RATIO = 0.8f;
     private final static float CARD_HEIGHT_RATIO = 0.5f;
+
+    // The top CardView.
     private CardView mTopCardView;
+
+    //The count of CardView in the screen.
     private int activeCardNum;
+
+    //The threshold which we can detect the moving action.
     private int mTouchSlop;
+
+    //The threshold of width that will trigger the animation of removing the top view
     private int mFadeSlop;
+
+    //The uncovered height for the adjacent views.
     private int uncoveredHeight;
+
+    //The elevation offset of the CardView, and the elevation of the most bottom one is 0.
     private int cardViewElevation;
+
+    //The size of the screen and the CardView.
     private int mScreenWidth;
     private int cardViewHeight;
     private int mCardViewWidth;
+
+    //The LinkedList that stores the reference of all the CardViews.
     private LinkedList<CardView> mViewList;
 
     private OnTouchListener cardViewTouchListener = new OnTouchListener() {
@@ -115,7 +147,7 @@ public class CardStackView extends FrameLayout {
         Log.i(TAG,"CardViewHeight: " + cardViewHeight);
         ViewConfiguration configuration = ViewConfiguration.get(context);
         mTouchSlop = configuration.getScaledTouchSlop();
-        activeCardNum = 4;
+        activeCardNum = 3;
 
     }
 
@@ -146,58 +178,83 @@ public class CardStackView extends FrameLayout {
             //cardView.setCardElevation(cardViewElevation * previousViewCount);
             mViewList.add(cardView);
             Log.i(TAG, "pre Card View: " + previousViewCount);
-            layoutAgain(0,previousViewCount);
+            layoutAgain(0,previousViewCount, false);
 
         }else {
             //cardView.setCardElevation(cardViewElevation * activeCardNum);
             removeViewAt(0);
             mViewList.add(cardView);
-            layoutAgain(previousViewCount-activeCardNum+1, previousViewCount);
+            layoutAgain(previousViewCount-activeCardNum+1, previousViewCount,false);
         }
 
     }
 
-    private void layoutAgain(int indexMin, int indexMax){
+    private void layoutAgain(int indexMin, int indexMax, boolean isAnimated) {
 
         int firstViewMarginTop = (int) Math.round(uncoveredHeight *
-                (1.0 - Math.pow(PERSPECTIVE_FACTOR, (indexMax-indexMin))) / (1 - PERSPECTIVE_FACTOR));
+                (1.0 - Math.pow(PERSPECTIVE_FACTOR, (indexMax - indexMin))) / (1 - PERSPECTIVE_FACTOR));
 
-        int topMargin = firstViewMarginTop;
-        for (int i = indexMax; i >= indexMin; i--) {
-            float scale = (float) Math.pow(PERSPECTIVE_FACTOR, indexMax - i);
-            final CardView v = mViewList.get(i);
-            v.setCardElevation((i-indexMin)*cardViewElevation);
-            LayoutParams lp = (LayoutParams) v.getLayoutParams();
-            if (i < indexMax) {
-                topMargin = topMargin - (int) (uncoveredHeight * scale / PERSPECTIVE_FACTOR);
+        int translationY = firstViewMarginTop;
+
+        if (isAnimated) {
+            int deltaY = uncoveredHeight;
+            long time1 = System.currentTimeMillis();
+            List<AnimatorSet> animList = new LinkedList<>();
+            for(int i = indexMax; i> indexMin; i--){
+                CardView cardView = mViewList.get(i);
+                //cardView.setTranslationX(0.0f);
+                //Log.i(TAG,"translation X:" + cardView.getTranslationX() + ", translation Y: " + cardView.getTranslationY());
+                //if(cardView.getTranslationX() != 0.0f)
+                //    cardView.setTranslationX(0.0f);
+                //Log.i(TAG,"translation X:" + cardView.getTranslationX() + ", translation Y: " + cardView.getTranslationY());
+                AnimatorSet set = new AnimatorSet();
+                float tranY = cardView.getTranslationY();
+                float scale = cardView.getScaleX();
+                float elevation = cardView.getCardElevation();
+                set.playTogether(
+                        ObjectAnimator.ofFloat(cardView, "translationY", tranY, tranY + deltaY),
+                        ObjectAnimator.ofFloat(cardView, "scaleX", scale, scale / PERSPECTIVE_FACTOR),
+                        ObjectAnimator.ofFloat(cardView, "scaleY", scale, scale / PERSPECTIVE_FACTOR),
+                        ObjectAnimator.ofFloat(cardView, "cardElevation", elevation, elevation + cardViewElevation));
+                set.setDuration(250);
+                animList.add(set);
+                deltaY *= PERSPECTIVE_FACTOR;
             }
-            lp.topMargin = topMargin;
-            v.setLayoutParams(lp);
-            v.setScaleX(scale);
-            v.setScaleY(scale);
 
-            /**<p>
-             * When the top cardView have been removed from the parent <code>CardStackView</code>,
-             * it will be added to the first one of the <code>mViewList</code>, so it can form a
-             * loop.
-             * </p>
-             * <p>
-             * But we use the <code>ObjectAnimator</code>to translate the top cardView, it will
-             * change the property of translationX, so we must reverse it to 0. Otherwise, though
-             * we add the removed view to the <code>CardStackView</code>, it will reappear in the
-             * position where it was removed.
-             * </p>
-             * <p>
-             * Though not all the view in the <code>mViewList</code> need invoke this method, such as
-             * the the views not removed, but some must. So we do it.
-             * And we can't write it in the method {@see CardStackView#showNext(float from, float to)},
-             * or it will meet some problem.
-             * </p>
-             * */
-            v.setTranslationX(0.0f);
+            CardView cardView = mViewList.get(indexMin);
+            cardView.setCardElevation(0.0f);
+            cardView.setTranslationY(0.0f);
+            float scale = deltaY*1.0f / uncoveredHeight;
+            cardView.setScaleX(scale);
+            cardView.setScaleY(scale);
+//            AnimatorSet animatorSet = new AnimatorSet();
+//            animatorSet.playTogether(
+//                    ObjectAnimator.ofFloat(cardView, "translationX", cardView.getTranslationX(), 0),
+//                    ObjectAnimator.ofFloat(cardView, "alpha", 0.0f, 1.0f));
+//            animatorSet.setDuration(250);
+//            animatorSet.setInterpolator(new AccelerateDecelerateInterpolator());
+//            animatorSet.start();
+            for(Animator animator: animList){
+                animator.start();
+            }
+            long time2 = System.currentTimeMillis();
+            Log.i(TAG, "Last Time: " + (time2 - time1) + "ms");
 
+
+
+        } else{
+            for (int i = indexMax; i >= indexMin; i--) {
+                float scale = (float) Math.pow(PERSPECTIVE_FACTOR, indexMax - i);
+                final CardView v = mViewList.get(i);
+                v.setCardElevation((i - indexMin) * cardViewElevation);
+                if (i < indexMax) {
+                    translationY = translationY - (int) (uncoveredHeight * scale / PERSPECTIVE_FACTOR);
+                }
+                v.setTranslationY(translationY);
+                v.setScaleX(scale);
+                v.setScaleY(scale);
+            }
         }
-
 
     }
 
@@ -215,19 +272,25 @@ public class CardStackView extends FrameLayout {
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                CardView temp = mTopCardView;
+
                 removeView(mTopCardView);
+                //After remove the top one from our view,let it return to the initial X quickly.
+                //Also you can use the method @see View.setTranslationX, but not all the
+                //time it will work.So we choose the animator whose duration is very short.
+                ObjectAnimator.ofFloat(mTopCardView,"translationX", mTopCardView.getTranslationX(),0)
+                        .setDuration(10).start();
                 mViewList.removeLast();
-                mViewList.addFirst(temp);
-                mTopCardView = mViewList.getLast();
+                mViewList.addFirst(mTopCardView);
                 final int viewNum = mViewList.size();
                 if (viewNum <= activeCardNum) {
-                    layoutAgain(0, viewNum - 1);
-                    addView(temp);
+                    layoutAgain(0, viewNum - 1, true);
+                    mTopCardView.setTranslationX(0);
+                    addView(mTopCardView, 0);
                 } else {
-                    layoutAgain(viewNum - activeCardNum, viewNum - 1);
-                    addView(mViewList.get(viewNum - activeCardNum));
+                    layoutAgain(viewNum - activeCardNum, viewNum - 1,true);
+                    addView(mViewList.get(viewNum - activeCardNum),0);
                 }
+                mTopCardView = mViewList.getLast();
             }
         }, FADE_DURATION);
     }

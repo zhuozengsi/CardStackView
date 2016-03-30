@@ -19,12 +19,12 @@ public class MainActivity extends AppCompatActivity {
         stackView.addCardView(cardView1);
         CardView cardView2 = (CardView) LayoutInflater.from(this).inflate(R.layout.card_view_in_framelayout,null);
         stackView.addCardView(cardView2);
-        CardView cardView3 = (CardView) LayoutInflater.from(this).inflate(R.layout.card_view_in_framelayout,null);
-        stackView.addCardView(cardView3);
-        CardView cardView4 = (CardView) LayoutInflater.from(this).inflate(R.layout.card_view_in_framelayout,null);
-        stackView.addCardView(cardView4);
-        CardView cardView5 = (CardView) LayoutInflater.from(this).inflate(R.layout.card_view_in_framelayout,null);
-        stackView.addCardView(cardView5);
+//        CardView cardView3 = (CardView) LayoutInflater.from(this).inflate(R.layout.card_view_in_framelayout,null);
+//        stackView.addCardView(cardView3);
+//        CardView cardView4 = (CardView) LayoutInflater.from(this).inflate(R.layout.card_view_in_framelayout,null);
+//        stackView.addCardView(cardView4);
+//        CardView cardView5 = (CardView) LayoutInflater.from(this).inflate(R.layout.card_view_in_framelayout,null);
+//        stackView.addCardView(cardView5);
 
     }
 }
